@@ -1,0 +1,31 @@
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace.dependencies]
+splayer-domain = { path = "crates/domain" }
+splayer-app = { path = "crates/app" }
+splayer-audio = { path = "crates/audio" }
+splayer-source-local = { path = "crates/source-local" }
+splayer-source-netease = { path = "crates/source-netease" }
+splayer-mediactl = { path = "crates/mediactl" }
+splayer-store = { path = "crates/store" }
+splayer-tui = { path = "crates/tui" }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"

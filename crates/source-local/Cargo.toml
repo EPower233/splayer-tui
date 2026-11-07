@@ -1,0 +1,15 @@
+[package]
+name = "splayer-source-local"
+description = "本地文件夹来源"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+splayer-domain.workspace = true
+splayer-app.workspace = true
+
+[lints]
+workspace = true

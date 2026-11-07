@@ -1,0 +1,25 @@
+[package]
+name = "splayer-tui-bin"
+description = "SPlayer-Next 的终端版：可执行文件和组装"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+splayer-domain.workspace = true
+splayer-app.workspace = true
+splayer-audio.workspace = true
+splayer-source-local.workspace = true
+splayer-source-netease.workspace = true
+splayer-mediactl.workspace = true
+splayer-store.workspace = true
+splayer-tui.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "splayer-tui"
+path = "src/main.rs"

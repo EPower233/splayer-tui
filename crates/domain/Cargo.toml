@@ -1,0 +1,13 @@
+[package]
+name = "splayer-domain"
+description = "数据类型（对齐 SPlayer-Next 的 shared/types）和纯规则"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
