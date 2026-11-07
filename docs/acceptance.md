@@ -41,7 +41,7 @@
 | 按键冲突测试通过：每个窗口"全局 + 本窗口"没有重复 | `cargo test keymap` |
 | 界面快照变了，PR 里写明为什么变 | `cargo insta review` 没有未审阅的快照 |
 | 性能没有退步：和上一个基线比，CPU、内存、写给终端的字节数在预算内 | `docs/experiments.md` 里有本次的数字 |
-| 登录凭据、Cookie 没有进仓库 | `git grep -i -E "MUSIC_U|__csrf"` 没有结果 |
+| 登录凭据、Cookie 没有进仓库 | `git grep -i -E "MUSIC_U=|__csrf=" -- ':!*.md'` 没有结果（文档里提到这两个名字不算） |
 
 我的承诺：
 
