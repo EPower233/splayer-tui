@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Stamps provenance trailers on every commit made on a task branch:
+#   Task:    from the branch name (feat/12-create-reminder -> T-12)
+#   Agent:   from $AGENT, or agent=... in the worktree's .agent file
+#   Session: from $AGENT_SESSION, or session=... in .agent (optional)
+# Existing trailers with the same key are kept, so amends and rewords do not duplicate them.
+set -euo pipefail
+
+msg_file=$1
+source=${2:-}
+case "$source" in merge|squash) exit 0 ;; esac
+
+branch=$(git symbolic-ref --quiet --short HEAD || true)
+root=$(git rev-parse --show-toplevel)
+
+read_agent_file() { [ -f "$root/.agent" ] && sed -n "s/^$1=//p" "$root/.agent" | head -n 1 || true; }
+
+task=""
+if [[ "$branch" =~ ^[a-z]+/([0-9]+)- ]]; then task="T-${BASH_REMATCH[1]}"; fi
+agent=${AGENT:-$(read_agent_file agent)}
+session=${AGENT_SESSION:-$(read_agent_file session)}
+
+add_trailer() {
+  [ -n "$2" ] || return 0
+  git interpret-trailers --in-place --if-exists doNothing --trailer "$1: $2" "$msg_file"
+}
+add_trailer Task "$task"
+add_trailer Agent "$agent"
+add_trailer Session "$session"

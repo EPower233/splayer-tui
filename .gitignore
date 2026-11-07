@@ -1,0 +1,9 @@
+# Per-worktree files written by scripts/new-task.sh; never committed.
+.agent
+.env.local
+
+# Add your stack's ignores below (build output, dependencies, editor files).
+/target/
+*.pdb
+.vscode/
+.idea/

@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Guards what reaches the remote:
+#   - one repository, one remote: pushes go to origin only;
+#   - main changes only through pull requests (creating it on an empty remote is allowed once);
+#   - branch and tag names follow branching.md;
+#   - task branches stay linear: no merge commits on top of main (rebase instead of merging);
+#   - no force push over commits another agent pushed (after an agreed handover, push once with ALLOW_FORCE=1).
+set -euo pipefail
+
+remote=$1
+zero=0000000000000000000000000000000000000000
+task_re='^refs/heads/(feat|fix|perf|refactor|test|docs|build|ci|chore|exp)/[0-9]+-[a-z0-9][a-z0-9-]*$'
+other_re='^refs/heads/(backup/[a-z0-9.-]+/[0-9]{8}-[a-z0-9-]+|release/[0-9]+\.[0-9]+)$'
+tag_re='^refs/tags/(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|submit-[0-9]{8}-[0-9]+|cand/[0-9]+-[0-9]+|checkpoint/[0-9]+-[0-9]+|archive/[a-z0-9./-]+)$'
+
+if [ "$remote" != "origin" ]; then
+  echo "pre-push: push only to origin (one repository, one remote); refusing '$remote'" >&2
+  exit 1
+fi
+
+root=$(git rev-parse --show-toplevel)
+me=${AGENT:-}
+if [ -z "$me" ] && [ -f "$root/.agent" ]; then me=$(sed -n 's/^agent=//p' "$root/.agent" | head -n 1); fi
+status=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue   # deleting a remote ref is fine
+
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    if [ "$remote_sha" = "$zero" ]; then continue; fi   # first push of a new repository
+    echo "pre-push: main changes only through pull requests" >&2
+    status=1
+    continue
+  fi
+
+  if [[ "$remote_ref" =~ $task_re ]]; then
+    base=$(git merge-base "$local_sha" "refs/remotes/$remote/main" 2>/dev/null || true)
+    if [ -n "$base" ] && [ -n "$(git rev-list --merges "$base..$local_sha")" ]; then
+      echo "pre-push: ${remote_ref#refs/heads/} contains merge commits; rebase onto main instead of merging" >&2
+      status=1
+    fi
+  elif [[ "$remote_ref" =~ $other_re || "$remote_ref" =~ $tag_re ]]; then
+    :
+  else
+    echo "pre-push: '${remote_ref#refs/*/}' does not follow the naming rules in branching.md" >&2
+    status=1
+    continue
+  fi
+
+  # A force push drops the remote tip. Allow it only over your own commits.
+  if [ "$remote_sha" != "$zero" ] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null &&
+     ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+    owner=$(git log -1 --format='%(trailers:key=Agent,valueonly)' "$remote_sha" | sed -n '1p')
+    if [ -n "$owner" ] && [ -n "$me" ] && [ "$owner" != "$me" ] && [ "${ALLOW_FORCE:-}" != 1 ]; then
+      echo "pre-push: ${remote_ref#refs/*/} was last pushed by $owner, not $me; a force push would drop their commits." >&2
+      echo "          Coordinate first. After an agreed handover, push once with ALLOW_FORCE=1." >&2
+      status=1
+    fi
+  fi
+done
+
+exit "$status"

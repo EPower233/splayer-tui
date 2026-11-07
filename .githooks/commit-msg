@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Refuses commits on task branches that cannot say which task they belong to and who made them,
+# and refuses merge commits there: task branches stay linear (rebase onto main instead).
+set -euo pipefail
+
+msg_file=$1
+branch=$(git symbolic-ref --quiet --short HEAD || true)
+[[ "$branch" =~ ^(feat|fix|perf|refactor|test|docs|build|ci|chore|exp)/ ]] || exit 0
+
+if git rev-parse --quiet --verify MERGE_HEAD >/dev/null; then
+  echo "commit-msg: no merge commits on task branches; abort this merge (git merge --abort) and rebase onto main instead" >&2
+  exit 1
+fi
+
+trailers=$(git interpret-trailers --parse "$msg_file")
+missing=()
+grep -q '^Task: T-[0-9]' <<<"$trailers" || missing+=(Task)
+grep -q '^Agent: .' <<<"$trailers" || missing+=(Agent)
+
+if [ ${#missing[@]} -gt 0 ]; then
+  echo "commit-msg: missing provenance trailer(s): ${missing[*]}" >&2
+  echo "Set AGENT=<name> or write agent=<name> into .agent at the worktree root; Task comes from the branch name." >&2
+  exit 1
+fi
