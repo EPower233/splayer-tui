@@ -1,22 +1,22 @@
-# 0001. Record architecture decisions
+# 0001. 用 ADR 记录架构决定
 
-- Status: accepted
-- Date: <YYYY-MM-DD>
-- Deciders: <user>
+- 状态：已接受
+- 日期：2026-11-08
+- 决定人：E_Power（用户）
 
-## Context
+## 背景
 
-Agents and people work on this project across many sessions. Without a record, each session re-derives earlier choices or silently reverses them.
+这个项目会跨很多个会话、由不同的 agent 和人来做。没有记录的话，每个会话都会重新推一遍以前的选择，或者悄悄推翻它。
 
-## Decision
+## 决定
 
-Every decision that changes the structure (layers, top-level directories, frameworks, storage, external services, cross-feature calls) gets a numbered ADR in `docs/adr/`, written from `0000-template.md`. The ADR is proposed before or together with the change, and the user accepts it. Accepted ADRs are not edited; a new ADR supersedes them.
+凡是改变结构的决定（分层、顶层目录、框架、存储、外部服务、跨层调用），都在 `docs/adr/` 里写一份编号的 ADR，照 `0000-template.md` 的格式。ADR 在改动之前或者和改动一起提出，由用户接受。接受了的 ADR 不再修改；要改方向，就写一份新的 ADR 取代它。
 
-## Alternatives considered
+## 考虑过的其他做法
 
-- Decisions only in chat or commit messages: lost when sessions or agents change.
-- One growing design document: hard to see what was decided when, and why.
+- 决定只写在聊天或提交说明里：换会话、换 agent 就丢了。
+- 写一份不断变长的设计文档：看不出什么时候定了什么、为什么。
 
-## Consequences
+## 后果
 
-Decisions can be reviewed and searched, and changing direction costs one short document. Agents must check `docs/adr/` before changing structure.
+决定可以被复查和搜索，改方向的成本是一份短文档。agent 改结构之前，必须先看 `docs/adr/`。

@@ -1,29 +1,51 @@
-# Product
+# 产品一页纸
 
-## In one sentence
+## 一句话
 
-<What it is and who it is for.>
+SPlayer-Next 的终端版：一个在终端里跑的音乐播放器，布局、按钮、默认值和功能都照 SPlayer-Next，长相和交互是 TUI 的。
 
-## Users and their main jobs
+## 给谁用，用来做什么
 
-- <user>: <the job they hire the product for>
+- 习惯 SPlayer-Next 的人：在终端里也用同样的布局和功能听歌，不用改习惯。
+- 常待在终端里的人：rice 过的 Linux 桌面、SSH 连上去的机器、跑不动 Electron 的老电脑（比如 X220），都能用。
 
-## This version does
+## 这一版（第 1 期 / v0.1）做
 
-- <capability>
+- 本地文件夹来源：列出、播放。
+- 网易云：扫码登录；首页；我喜欢的音乐、创建 / 收藏的歌单、每日推荐、私人 FM / 心动模式、搜索。
+- 播放、播放列表、喜欢。
+- 歌词：逐字（可关）、翻译、音译。
+- 全屏播放页；封面取色主题；频谱（照 SPlayer-Next 默认关）。
+- 设置页和配置文件：`docs/settings.md` 里对应已做功能的设置项。
+- 系统媒体控制：Windows SMTC、Linux MPRIS。
+- 只支持"现代"终端档位。
 
-## This version does not
+## 这一版不做
 
-- <explicitly out of scope>
+- QQ 音乐、酷狗；Navidrome / Jellyfin / Emby；完整的本地曲库（扫描、数据库、元信息编辑）。
+- 下载、云盘上传、评论、插件、AutoMix、听歌识曲、统计。
+- 听歌打卡、Last.fm、Discord、外部 API、MCP。
+- 后台守护进程、"兼容"终端档位、图形界面版。
 
-## How we know it works
+以上按 `docs/scope.md` §4 的分期，在后面几期陆续做。
 
-- <measurable success criteria; acceptance scenarios>
+## 怎么算成功
 
-## Constraints
+- `docs/acceptance.md` 里 M0 到 M3 的验收全部通过。
+- 用户在 Windows Terminal 和 X220 上，拿它代替 SPlayer-Next 日常听歌一周，没有阻塞问题。
+- `docs/plan.md` 4.5 节的性能预算在 X220 上达标。
 
-<Platforms, data, security and privacy, performance targets and where they are measured, deadlines.>
+## 约束
 
-## Open questions
+- 平台：Windows 和 Linux。终端要支持真彩色和 kitty 键盘协议（Windows 上用控制台 API）。
+- 许可证：AGPL-3.0（因为用了 SPlayer-Next 的代码），引入的代码都要能并进 AGPL-3.0。
+- 性能：准绳机器是 X220，数字在那里量。
+- 隐私：登录凭据只存在本机配置目录里，不进仓库、不进日志。
+- 网易云接口有风控，会变；请求层要能跟着 SPlayer-Next 的应对方式同步。
 
-- <question>
+## 还没定的
+
+- 项目正式名称。
+- GitHub 远端放在哪、公开还是私有。
+- 键位 v2 定稿。
+- 要不要、什么时候联系 SPlayer-Next 作者。
