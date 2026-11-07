@@ -7,17 +7,19 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-      # Set up your toolchain here with dependency caching, for example
-      # actions/setup-python@v5, actions/setup-node@v4, actions/setup-go@v5 or dtolnay/rust-toolchain@stable.
-      - run: ./scripts/check.sh
-
-  # Slow checks run in their own job so they never delay the fast feedback above.
-  # integration:
-  #   runs-on: ubuntu-latest
-  #   needs: check
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - run: ./scripts/integration.sh
+      # rust-toolchain.toml 钉死了版本，这一步只负责装上它。
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: bash scripts/check.sh
