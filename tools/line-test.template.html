@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>分隔线实测</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
+<style>
+body{margin:0;padding:16px;background:#0d0e12;color:#ccc;font-family:system-ui,"Microsoft YaHei",sans-serif}
+h3{font-size:14px;font-weight:500;margin:16px 0 8px}
+.term{display:inline-block;border-radius:8px;overflow:hidden}
+</style>
+</head>
+<body>
+<h3>A. 终端自己画线条字符（WebGL 渲染，等同 kitty / WezTerm / Windows Terminal 的做法），行距 1.2</h3>
+<div class="term" id="a"></div>
+<h3>B. 线条字符用字体里的字形（DOM 渲染，等同老终端的做法），行距 1.2</h3>
+<div class="term" id="b"></div>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-webgl@0.18.0/lib/addon-webgl.min.js"></script>
+<script>
+const DATA="__B64__";
+const bytes=Uint8Array.from(atob(DATA),c=>c.charCodeAt(0));
+function mk(id,webgl){
+  const t=new Terminal({cols:76,rows:37,fontFamily:'"Cascadia Mono",Consolas,"Microsoft YaHei",monospace',fontSize:14,lineHeight:1.2,convertEol:true,customGlyphs:true,allowProposedApi:true,theme:{background:'#16171e',foreground:'#ebe9f3'}});
+  t.open(document.getElementById(id));
+  if(webgl){try{t.loadAddon(new WebglAddon.WebglAddon())}catch(e){t.write('WebGL 不可用：'+e+'\r\n')}}
+  t.write(bytes);
+}
+mk('a',true);mk('b',false);
+</script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPlayer TUI 样稿</title>
+<style>
+body{margin:0;padding:24px 16px;background:#0d0e12;color:#ddd;font-family:system-ui,"Microsoft YaHei",sans-serif}
+.wrap{max-width:1100px;margin:0 auto}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+button{background:transparent;color:#ddd;border:1px solid #444;border-radius:8px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+button:hover{background:#1c1d24}
+button.on{border-color:#93b4f2}
+.term{border-radius:12px;overflow:hidden;background:#14161f}
+canvas{display:block;width:100%}
+#chk{font-size:13px;color:#9a9;margin:8px 2px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="bar" id="pages"></div>
+<div class="bar" id="opts"></div>
+<div class="term"><canvas id="t" aria-label="终端界面样稿"></canvas></div>
+<div id="chk"></div>
+</div>
+<script>
+const W=96,H=31,CW=9,CH=19,cv=document.getElementById('t'),ctx=cv.getContext('2d'),dpr=Math.max(1,window.devicePixelRatio||1);
+cv.width=W*CW*dpr;cv.height=H*CH*dpr;ctx.scale(dpr,dpr);
+const FONT='"Cascadia Mono",Consolas,"JetBrains Mono",ui-monospace,"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",monospace';
+const DEF='#16171e';
+const O={TP:true,EMO:true,SEP:true,WORD:true,SPEC:false,SBC:false,OVL:false,UM:false};
+let page='home',ti=0,start=performance.now(),last=0;
+const IC={home:['🏠','⌂'],lib:['🎵','♫'],artist:['👤','◐'],album:['💿','◎'],folder:['📁','▤'],stats:['📊','▥'],like:['💗','♡'],star:['⭐','☆'],cloud:['⛅','◇'],stream:['📚','⇋'],clock:['🕘','◷'],gear:['🔧','⚙'],heartmode:['💓','♡'],dice:['🎲','⚄'],cal:['📅','▦'],radio:['📻','∞'],globe:['🌐','◍'],comment:['💬','✎'],hour:['⌛','⧗']};
+const ic=k=>IC[k][O.EMO?0:1];
+const hx=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const toH=a=>'#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+const mix=(a,b,t)=>{const A=hx(a),B=hx(b);return toH(A.map((v,i)=>v+(B[i]-v)*t))};
+const wide=c=>{const p=c.codePointAt(0);return (p>=0x1100&&p<=0x115F)||(p>=0x2E80&&p<=0x303E)||(p>=0x3041&&p<=0x33FF)||(p>=0x3400&&p<=0x4DBF)||(p>=0x4E00&&p<=0x9FFF)||(p>=0xAC00&&p<=0xD7A3)||(p>=0xF900&&p<=0xFAFF)||(p>=0xFE30&&p<=0xFE4F)||(p>=0xFF00&&p<=0xFF60)||(p>=0xFFE0&&p<=0xFFE6)||(p>=0x1F300&&p<=0x1FAFF)||p==0x2B50||p==0x26C5||p==0x231B};
+const wp=document.createElement('canvas');wp.width=W*CW;wp.height=H*CH;
+{const g=wp.getContext('2d');g.fillStyle='#1d1733';g.fillRect(0,0,wp.width,wp.height);
+for(const [x,y,r,c] of [[180,140,420,'rgba(122,72,182,.9)'],[720,470,460,'rgba(31,120,150,.85)'],[620,60,300,'rgba(214,96,140,.7)'],[90,540,300,'rgba(240,170,90,.45)']]){const rg=g.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,c);rg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=rg;g.fillRect(0,0,wp.width,wp.height)}}
+let B=[],KEYS=[];
+const clr=g=>{B=Array.from({length:W*H},()=>({c:' ',f:'#fff',g,b:0,w:1}));KEYS=[]};
+const C=(x,y)=>B[y*W+x];
+function fill(x,y,w,h,g){for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++)if(i>=0&&i<W&&j>=0&&j<H)C(i,j).g=g}
+function blank(x,y,w,h){for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++)if(i>=0&&i<W&&j>=0&&j<H){const c=C(i,j);c.c=' ';c.w=1;c.p=null;c.ln=null;c.vl=null;c.lv=0}}
+function put(x,y,s,f,g,b){if(y<0||y>=H)return x;for(const ch of s){const w=wide(ch)?2:1;if(x<0){x+=w;continue}if(x+w>W)break;const c=C(x,y);c.c=ch;c.p=null;c.f=typeof f=='function'?f(c.g||DEF):f;c.b=b?1:0;c.w=w;if(g)c.g=g;if(w==2){const n=C(x+1,y);n.c='';n.w=0;n.p=null;if(g)n.g=g}x+=w}return x}
+const sw=s=>{let n=0;for(const ch of s)n+=wide(ch)?2:1;return n};
+function trunc(s,w){if(sw(s)<=w)return s;let o='',n=0;for(const c of s){const k=wide(c)?2:1;if(n+k>w-1)return o+'…';o+=c;n+=k}return o}
+function tint(x,y,w,a){for(let i=x;i<x+w&&i<W;i++){const c=C(i,y);if(c.g)c.g=mix(c.g,'#ffffff',a)}}
+function cover(x0,y0,w,h,f){for(let j=0;j<h;j++)for(let i=0;i<w;i++){if(x0+i>=W||y0+j>=H)continue;const c=C(x0+i,y0+j);c.p=[f((i+.5)/w,(2*j+.5)/(2*h)),f((i+.5)/w,(2*j+1.5)/(2*h))];c.c=''}}
+function vline(x,y0,y1,col,t){for(let y=y0;y<=y1;y++){const c=C(x,y);c.vl=col;c.vt=t}}
+function hline(x0,x1,y,col,t,lo){for(let i=x0;i<=x1;i++){const c=C(i,y);c.ln=col;c.lt=t;c.lo=lo}}
+const fmt=s=>{s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+function hk(x,y,key,act,col,bold){KEYS.push([key,act]);return put(x,y,key,col||KEY,null,bold)}
+function draw(){if(O.TP){ctx.drawImage(wp,0,0);ctx.fillStyle='rgba(12,12,18,.58)';ctx.fillRect(0,0,W*CW,H*CH)}else{ctx.fillStyle='#000';ctx.fillRect(0,0,W*CW,H*CH)}
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){const c=C(x,y),px=x*CW,py=y*CH;if(c.g){ctx.fillStyle=c.g;ctx.fillRect(px,py,CW+.5,CH+.5)}
+if(c.p){ctx.fillStyle=c.p[0];ctx.fillRect(px,py,CW+.5,CH/2+.5);ctx.fillStyle=c.p[1];ctx.fillRect(px,py+CH/2,CW+.5,CH/2+.5)}
+if(c.lv){ctx.fillStyle=c.lc;const h=CH*c.lv/8;ctx.fillRect(px+1,py+CH-h,CW-2,h)}
+if(c.ln){ctx.fillStyle=c.ln;ctx.fillRect(px,py+c.lo-c.lt/2,CW+.5,c.lt)}
+if(c.vl){ctx.fillStyle=c.vl;ctx.fillRect(px+CW/2-c.vt/2,py,c.vt,CH+.5)}}
+ctx.textAlign='center';ctx.textBaseline='middle';let lf='';
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){const c=C(x,y);if(!c.c||c.c==' ')continue;const f=(c.b?'bold ':'')+'15px '+FONT;if(f!=lf){ctx.font=f;lf=f}ctx.fillStyle=c.f;ctx.fillText(c.c,x*CW+(c.w==2?CW:CW/2),y*CH+CH/2+1)}}
+const mk=(c1,c2,c3,c4,cx,cy,r,st)=>(u,v)=>{let c=mix(c1,c2,v);const d=(u-cx)**2+(v-cy)**2;if(d<r*r)c=c3;else if(d<r*r*1.6)c=mix(c,c3,.3);if(st&&v>st&&(Math.floor(u*10)+Math.floor(v*12))%3==0)c=c4;return c};
+const CV=[mk('#fde2e4','#9ad1f5','#fff1a8','#ff8fab',.32,.38,.2,.72),mk('#1b1035','#d6336c','#ffd166','#06d6a0',.66,.4,.22,.74),mk('#0b132b','#24506b','#5bc0be','#e0fbfc',.5,.48,.28,0),mk('#ffe5ec','#ff9eb8','#ffffff','#fb6f92',.7,.3,.16,.6),mk('#2b2d42','#8d99ae','#edf2f4','#ef233c',.4,.55,.25,.8),mk('#003049','#669bbc','#fdf0d5','#c1121f',.6,.35,.2,.7),mk('#f1faee','#a8dadc','#457b9d','#e63946',.35,.6,.18,.78),mk('#3c1642','#086375','#1dd3b0','#affc41',.55,.45,.24,.7)];
+const coverA=(u,v)=>{let c=mix('#1a2147','#5a2d6e',v);const dx=u-.7,dy=v-.28,d=dx*dx+dy*dy;if(d<.018)c='#f3dfae';else if(d<.032)c=mix(c,'#f3dfae',.22);
+const bi=Math.min(6,Math.floor(u*7)),bh=[.55,.42,.62,.36,.5,.6,.46][bi];if(v>bh){c='#0e1124';if((Math.floor(u*28)+Math.floor(v*28))%3==0&&v<.9&&v>bh+.05)c=bi%2?'#f08cb5':'#f5d27a'}
+if(v>.9)c=mix('#0e1124','#f08cb5',.3*(Math.floor(u*14)%2));return c};
+const coverB=(u,v)=>{let c=v<.58?mix('#f7d58f','#ef8a52',v/.58):mix('#2b6f78','#143640',(v-.58)/.42);const dx=u-.5,dy=v-.56;if(v<.58&&dx*dx+dy*dy<.03)c='#fff1c9';
+if(v>=.58&&Math.abs(u-.5)<.13*(1-(v-.58)*1.7)&&Math.floor(v*30)%2==0)c=mix(c,'#ffd49a',.6);if(v<.3&&Math.abs(v-.18-.05*Math.sin(u*9))<.012)c=mix(c,'#ffffff',.5);return c};
+const coverU=(u,v)=>v<.45?'#e9e4f2':(u<.5?'#8f7fc0':'#6d5f9e');
+const SONGS=[['落日飞行','海边的猫','落日飞行','3:58','SQ 原','Sunset Flight',1],['Midnight Tram','Neon Harbor','City Lights EP','4:21','SQ VIP','',0],['霓虹与雨','林夏 / 阿青','霓虹与雨','4:12','SQ MV','',1],['夜を泳ぐ街','ミナト','Blue Hour','3:47','Hi-Res VIP','在夜里游泳的城市',1],['Telephone Line','Kaito Mori','Plastic Summer','5:02','SQ 原','',0],['便利店的灯','七号公路','便利店的灯','3:33','SQ','',0],['Sunday Static (Slowed)','Paper Moon Club','Static','4:05','SQ 原','',1],['海岸线','沈未','海岸线','4:40','Hi-Res VIP MV','',0]];
+const TR=[{title:'夜を泳ぐ街',sub:'电视剧《夜行》片尾曲',artist:'ミナト / 青葉 (SKY)',album:'Blue Hour',tags:['Hi-Res','YRC','Official'],q:'Hi-Res',play:3,dur:227,pix:coverA,
+T:{base:'#14161f',panel:'#1b1e2b',high:'#2a2e42',sel:'#262b40',line:'#343850',text:'#ebe9f3',sub:'#a7a6bd',dim:'#7a7c96',acc:'#f08cb5',acc2:'#93b4f2'},
+lyr:[['傘も持たずに 駅まで走った','没带伞就一路跑到车站','kasa mo motazu ni eki made hashitta'],['窓の外で 街が呼吸してる','窗外的城市正在呼吸','mado no soto de machi ga kokyuu shiteru'],['信号の青が 少し滲んだ','绿灯的颜色微微晕开','shingou no ao ga sukoshi nijinda'],['君の言葉を ポケットにしまって','把你的话收进口袋','kimi no kotoba wo poketto ni shimatte'],['最終電車に 揺られてゆく','随着末班电车一路摇晃','saishuu densha ni yurarete yuku'],['名前のない 夜の真ん中で','在没有名字的深夜正中央','namae no nai yoru no mannaka de'],['もう一度だけ 振り返った','只再回头看了一次','mou ichido dake furikaetta'],['街は静かに 泳ぎ出す','城市静静地游了起来','machi wa shizuka ni oyogidasu'],['夜を泳ぐ 夜を泳ぐ','在夜里游啊 游啊','yoru wo oyogu yoru wo oyogu'],['ネオンの海で 息をした','在霓虹的海里换一口气','neon no umi de iki wo shita']]},
+{title:'落日飞行',sub:'',artist:'海边的猫',album:'落日飞行',tags:['无损','LRC'],q:'无损',play:0,dur:238,pix:coverB,
+T:{base:'#1a1512',panel:'#231c17',high:'#372c23',sel:'#30271f',line:'#45392f',text:'#f4ece4',sub:'#bdae9f',dim:'#8a7d70',acc:'#f4a95e',acc2:'#7fd0c4'},
+lyr:[['海风把黄昏吹成橘色'],['我们坐在防波堤的尽头'],['你说飞机像一颗慢慢的流星'],['带走今天没说完的话'],['影子被拉得很长很长'],['像要一路走回小时候'],['灯塔亮起的时候'],['我们就假装不用回去'],['等下一班落日飞行'],['把晚霞折进口袋里'],['明天再拆开来看']]}];
+let T,KEY,LN,LNS;
+const surf=(x,y,w,h,g)=>{if(!O.TP)fill(x,y,w,h,g)};
+const sect=(x,y,s)=>{put(x,y,'▌',T.acc);put(x+2,y,s,T.text,null,1)};
+const title=(x,y,s,sub)=>{put(x,y,s,T.text,null,1);if(sub)put(x,y+1,sub,T.dim)};
+function playerbar(S){surf(0,29,W,2,T.panel);const pos=Math.floor(S.t/S.dur*W);hline(0,W-1,28,LN,2.5,CH-1.25);for(let i=0;i<=pos;i++)C(i,28).ln=T.acc;
+cover(1,29,4,2,S.pix);put(1,30,'^⏎',KEY,'#1c1d26');KEYS.push(['^⏎','打开全屏播放页']);
+let x=put(6,29,trunc(S.title,16),T.text,null,1);x=put(x+1,29,'♥',T.acc);x=hk(x+1,29,'^L','喜欢当前歌曲');x=put(x+2,29,'⋯',T.sub);hk(x+1,29,'^G','当前歌曲更多');put(6,30,trunc(S.artist,26),T.dim);
+for(const [cx,g,k,a,ch] of [[36,'⇄','^S','播放模式'],[40,'|◁','^←','上一首'],[44,' ‖ ','␣','播放暂停',1],[49,'▷|','^→','下一首'],[53,'⟳','^R','循环模式']]){put(cx,29,g,ch&&O.TP?T.acc:T.text,ch&&!O.TP?T.high:null,ch);hk(ch?cx+1:cx,30,k,a)}
+put(60,29,fmt(S.t)+' / '+fmt(S.dur),T.sub);hk(60,30,'⇧←','快退');hk(70,30,'⇧→','快进');
+put(75,29,S.q,T.acc2,null,1);hk(76,30,'^K','切换音质');put(83,29,'◁)',T.sub);hk(82,30,'^↑↓','音量');put(88,29,'≡',T.sub);hk(88,30,'^P','播放列表');put(92,29,'⋮',T.sub);hk(92,30,'^E','更多控制')}
+function chrome(S,active){clr(O.TP?null:T.base);surf(0,0,20,29,T.panel);
+put(1,0,'◉',T.acc,null,1);put(3,0,'SPlayer',T.text,null,1);
+put(22,0,'‹',T.sub);hk(23,0,'⌥←','后退');put(27,0,'›',T.sub);hk(28,0,'⌥→','前进');
+if(O.TP)hline(32,63,0,LN,1,CH-3);else fill(32,0,32,1,T.high);put(33,0,'⌕ 搜索歌曲、歌手或专辑',T.dim);hk(61,0,'^F','打开搜索');
+cover(W-25,0,2,1,coverU);let x=put(W-22,0,'E_Power',T.sub);put(x+1,0,O.UM?'▴':'▾',T.sub);hk(x+3,0,'^U','用户菜单');put(W-8,0,ic('gear'),T.sub);hk(W-5,0,'^,','设置');
+vline(20,0,27,LN,1);vline(20,3,10,T.sub,2);for(const y of [8,14])hline(2,17,y,LN,1,CH/2);
+const side=[[2,'home','首页','1'],[3,'lib','音乐库','2'],[4,'artist','艺术家','3'],[5,'album','专辑','4'],[6,'folder','文件夹','5'],[7,'stats','统计','6'],[9,'like','我喜欢的音乐','7'],[10,'star','我的收藏','8'],[11,'cloud','我的云盘','9'],[12,'stream','媒体源','0'],[13,'clock','播放历史','']];
+for(const [y,i,s,k] of side){const a=active==i;if(a){surf(0,y,20,1,mix(T.acc,T.panel,.82));put(0,y,'▌',T.acc)}put(2,y,ic(i),a?T.acc:T.sub);put(5,y,s,a?T.acc:T.sub,null,a);if(k)hk(18,y,k,'侧栏 '+s,T.dim)}
+put(2,15,'我的歌单',T.dim);put(11,15,'在线 ▾',T.dim);put(18,15,'+',T.dim);
+const pl=(y,n,f,a)=>{if(a){surf(0,y,20,1,mix(T.acc,T.panel,.82));put(0,y,'▌',T.acc)}if(O.SBC){cover(2,y,2,1,f);put(5,y,trunc(n,14),a?T.acc:T.sub,null,a)}else put(2,y,'≡ '+trunc(n,15),a?T.acc:T.sub,null,a)};
+[[16,'上岸',CV[2]],[17,'大脑高频率运转专用',CV[6]],[18,'夜行列车',coverA],[19,'跑步 160bpm',CV[4]]].forEach(([y,n,f])=>pl(y,n,f,false));
+put(2,21,'收藏的歌单',T.dim);
+[[22,'城市流行精选',CV[5],0],[23,'童话风电子｜糖果、星光与远方',CV[0],1],[24,'雨天 Lo-fi',CV[2],0],[25,'经典永不过时',CV[7],0]].forEach(([y,n,f,a])=>pl(y,n,f,active=='fairy'&&a));
+playerbar(S)}
+function home(S){chrome(S,'home');
+title(22,2,'凌晨好，E_Power','本周已经听了 6 小时 12 分钟');
+for(const [x,v,u,l] of [[67,'6.2','h','本周时长'],[77,'12','首','新增收藏'],[87,'9','天','连续收听']]){const e=put(x,2,v,T.text,null,1);put(e,2,u,T.sub);put(x,3,l,T.dim)}
+surf(22,5,74,6,T.panel);cover(23,5,12,6,CV[1]);put(37,5,' 每日推荐 ',T.sub,O.TP?null:T.high);put(37,6,'从「はじまりの曲」听起',T.text,null,1);put(37,7,'根据你的口味精选 · 30 首',T.dim);
+let x;if(O.TP){x=put(37,9,'▷ 立即播放 ',T.acc,null,1)}else x=put(37,9,' ▷ 立即播放 ',T.base,T.acc,1);hk(x+1,9,'p','立即播放');x=put(x+4,9,'+ 添加到队列 ',T.sub);hk(x,9,'a','添加到队列');
+[['はじまりの曲','厚揚げろが。'],['Midnight Tram','Neon Harbor'],['霓虹与雨','林夏'],['Glass Garden','Aoi Kurata'],['海岸线','沈未']].forEach(([t,a],i)=>{const y=5+i;put(67,y,String(i+1).padStart(2,'0'),T.dim);put(70,y,trunc(t,14),T.text);const s=trunc(a,10);put(95-sw(s),y,s,T.dim)});
+[['dice','试试手气','随机播放一首','r'],['cal','每日推荐','每天为你精选','d'],['heartmode','心动模式','根据喜好智能播放','x'],['radio','私人 FM','为你不停推荐','t']].forEach(([i,n,d,k],j)=>{const x0=22+j*19;surf(x0,12,17,2,T.panel);put(x0+1,12,ic(i),T.acc);put(x0+4,12,n,T.text,null,1);hk(x0+15,12,k,n);put(x0+4,13,trunc(d,13),T.dim)});
+title(22,15,'继续聆听','你最近在听的 6 首歌');
+[['落日飞行','海边的猫',12,CV[0]],['夜を泳ぐ街','ミナト',9,coverA],['Telephone Line','Kaito Mori',7,CV[4]],['便利店的灯','七号公路',5,CV[5]],['Glass Garden','Aoi Kurata',4,CV[6]],['海岸线','沈未',3,CV[2]]].forEach(([t,a,n,f],i)=>{const x0=22+(i%3)*25,y=17+Math.floor(i/3)*3;surf(x0,y,24,2,T.panel);put(x0+1,y,String(i+1).padStart(2,'0'),T.dim);cover(x0+4,y,4,2,f);put(x0+9,y,trunc(t,14),T.text);put(x0+9,y+1,trunc(a,9),T.dim);const pc=n+' 次';put(x0+23-sw(pc),y+1,pc,T.dim)});
+title(22,23,'专属歌单','为你量身定制的歌单精选');
+[CV[3],CV[7],CV[1],CV[5]].forEach((f,i)=>cover(22+i*19,25,17,3,f))}
+function playlist(S){chrome(S,'fairy');
+cover(22,2,14,7,CV[0]);
+let x=put(38,2,' '+ic('globe')+' 在线 ',T.dim,O.TP?null:T.high);put(x+1,2,' ≡ 歌单 ',T.dim,O.TP?null:T.high);
+put(38,3,trunc('童话风电子｜糖果、星光与远方',56),T.text,null,1);
+put(38,4,trunc('Part 1 "有人吗？" 推开沉重的木门，门铃轻轻响了一声。"欢迎来到星光糖果店。"',54)+' ›',T.dim);
+x=put(38,6,ic('artist')+' 昴月',T.sub);x=put(x+3,6,'≡ 32 首',T.sub);x=put(x+3,6,ic('hour')+' 2 小时 3 分钟',T.sub);put(x+3,6,ic('cal')+' 2021-10-27',T.sub);
+if(O.TP){x=put(38,8,'▷ 播放全部 ',T.acc,null,1)}else x=put(38,8,' ▷ 播放全部 ',T.base,T.acc,1);hk(x+1,8,'p','播放全部');x=put(x+4,8,'♥ 取消收藏 ',T.sub);hk(x,8,'c','收藏歌单');x=put(x+4,8,'⋯ ',T.sub);hk(x,8,'o','歌单更多');
+if(O.TP)hline(80,94,8,LN,1,CH-3);else fill(80,8,15,1,T.high);put(80,8,'⌕ 页内搜索',T.dim);hk(93,8,'/','页内搜索');
+put(22,10,'#',T.dim);put(32,10,'标题',T.dim);put(62,10,'专辑',T.dim);put(82,10,'操作',T.dim);put(89,10,'时长',T.dim);
+const BC={SQ:T.acc2,'原':'#e39ab0',VIP:'#ef7b6b',MV:'#e8c46a','Hi-Res':'#e8c46a'};
+SONGS.forEach((s,i)=>{const y=11+i*2;if(y>26)return;const cur=i==4,pl=i==S.play;
+if(cur){surf(21,y,W-22,2,T.sel);put(21,y,'▌',T.acc2);put(21,y+1,'▌',T.acc2)}
+if(pl)put(23,y,'♪',T.acc,null,1);else put(22,y,String(i+1).padStart(2,'0'),cur?T.text:T.dim);
+cover(26,y,4,2,CV[i%CV.length]);
+let x=put(32,y,trunc(s[0],28),pl?T.acc:T.text,null,pl||cur);if(s[5])put(x+1,y,trunc('('+s[5]+')',60-x),T.dim);
+put(62,y,trunc(s[2],18),T.sub);put(83,y,s[6]?'♥':'♡',s[6]?T.acc:T.dim);put(89,y,s[3],T.sub);
+if(O.SEP)hline(22,94,y+1,LNS,1,CH-1.5);let xx=32;for(const bd of s[4].split(' ').filter(Boolean))xx=put(xx,y+1,bd,BC[bd]||T.acc2)+1;put(xx+1,y+1,trunc(s[1],60-xx),T.dim);
+if(cur){let k=hk(62,y+1,'⏎','播放选中',KEY,1);k=put(k,y+1,' 播放 ',T.dim);k=hk(k,y+1,'a','下一首播放',KEY,1);k=put(k,y+1,' 下一首 ',T.dim);k=hk(k,y+1,'f','喜欢选中',KEY,1);k=put(k,y+1,' 喜欢 ',T.dim);k=hk(k,y+1,'m','选中歌曲菜单',KEY,1);put(k,y+1,' 菜单',T.dim)}});
+vline(95,11,14,T.dim,2)}
+function fp(S,now){const sec=now/1000;clr(O.TP?null:'#000000');if(!O.TP)fill(0,0,W,H,T.base);
+const WH='#f4f2f7',fa=a=>g=>mix(WH,g,a),KY=fa(.58),fk=(x,y,k,a)=>{KEYS.push([k,a]);return put(x,y,k,KY)};
+let x=put(2,0,'❝ ',fa(.3));fk(x,0,'v','歌词开关');x=put(W-5,0,'▦ ',fa(.3));fk(x,0,'b','布局');
+cover(6,2,28,14,S.pix);put(6,17,S.title,WH,null,1);if(S.sub)put(6,18,S.sub,fa(.3));
+x=6;for(const tg of S.tags){const s=' '+tg+' ';put(x,19,s,fa(.25));tint(x,19,sw(s),.12);x+=sw(s)+1}
+put(6,21,ic('artist')+' '+S.artist,fa(.3));put(6,22,ic('album')+' '+S.album,fa(.3));
+const top=1,bot=23,mid=9;
+const L=S.lyr,li=S.li,p=S.lp,hh=i=>1+(L[i][1]?1:0)+(L[i][2]?1:0)+1;
+for(let i=0;i<L.length;i++){let r=mid;if(i>li)for(let j=li;j<i;j++)r+=hh(j);else for(let j=i;j<li;j++)r-=hh(j);if(r<top||r+hh(i)-2>bot)continue;const d=Math.abs(i-li);
+if(d==0){if(O.WORD){const s=[...L[i][0]],k=Math.floor(p*s.length);let xx=44;s.forEach((ch,ci)=>{xx=put(xx,r,ch,fa(ci<k?0:ci==k?.22:.45),null,1)})}else put(44,r,L[i][0],WH,null,1);if(L[i][1])put(44,r+1,L[i][1],fa(.12));if(L[i][2])put(44,r+2,L[i][2],fa(.25))}
+else{const a=[0,.55,.68,.78,.85][Math.min(d,4)];put(44,r,L[i][0],fa(a),null,1);if(L[i][1])put(44,r+1,L[i][1],fa(Math.min(.9,a+.1)));if(L[i][2])put(44,r+2,L[i][2],fa(Math.min(.92,a+.14)))}}
+for(const [y,g,k,a] of [[mid-4,'⧉','c','复制歌词'],[mid-2,'+','=','歌词提前'],[mid,'0.0s','',''],[mid+2,'−','-','歌词延后'],[mid+4,'⚙','o','歌词设置']]){put(89,y,g,fa(g=='0.0s'?.35:.45),null,g=='0.0s');if(k)fk(93,y,k,a)}
+if(O.OVL){const ox=55,oy=mid-3,ow=31,oh=9,bg=O.TP?'#1c1d26':mix(T.base,'#ffffff',.07);fill(ox,oy,ow,oh,bg);blank(ox,oy,ow,oh);
+put(ox+2,oy+1,'歌词设置',WH,null,1);fk(ox+ow-5,oy+1,'Esc','关闭弹窗');
+[['逐字高亮',O.WORD,'w'],['显示翻译',true,'t'],['显示逐行音译',true,'r'],['隐藏已播放行',false,'']].forEach(([l,on,k],i)=>{const y=oy+3+i;put(ox+2,y,on?'◉':'○',on?T.acc:fa(.5));put(ox+4,y,l,fa(.2));if(k)fk(ox+ow-3,y,k,'弹窗 '+l)});
+put(ox+2,oy+oh-1,'全部歌词设置 →',fa(.45))}
+const R=26;
+for(const [cx,g,k,a,col,ch] of [[3,'⌄','^Esc','收起播放页'],[9,'♥','^L','喜欢当前歌曲',T.acc],[14,ic('comment'),'^T','评论'],[19,'⊕','^O','收藏到歌单'],[36,'⇄','^S','播放模式'],[40,'|◁','^←','上一首'],[44,' ‖ ','␣','播放暂停',null,1],[49,'▷|','^→','下一首'],[53,'⟳','^R','循环模式'],[73,S.q,'^K','切换音质',T.acc2],[81,'◁) ▮▮▮▮▯','^↑↓','音量'],[90,'≡','^P','播放列表'],[93,'⋮','^E','更多控制']]){put(cx,R,g,col||WH,null,ch||col==T.acc2);if(ch)tint(cx,R,3,.16);fk(ch?cx+1:cx,R+1,k,a)}
+fk(26,R+2,'⇧←','快退');put(29,R+2,fmt(S.t),fa(.3));const bx=35,bw=26,pp=bx+Math.floor(S.t/S.dur*bw);for(let i=bx;i<bx+bw;i++){const c=C(i,R+2);c.ln=i<=pp?T.acc:mix(c.g||DEF,'#ffffff',.25);c.lt=i<=pp?3:1;c.lo=CH/2}put(pp,R+2,'●',WH);put(62,R+2,fmt(S.dur),fa(.3));fk(68,R+2,'⇧→','快进');
+if(O.SPEC)for(let x2=0;x2<W;x2++){const vv=(.3+.7*Math.abs(Math.sin(x2*.37+sec*3.1)*Math.cos(x2*.11-sec*1.7)))*(1-x2/W*.45);const b=C(x2,30);b.lv=Math.round(vv*8);b.lc=mix(T.acc,b.g||DEF,.55)}}
+function settings(S){chrome(S,'');blank(0,0,W,28);if(!O.TP)fill(0,0,W,28,T.base);surf(0,0,20,28,T.panel);vline(20,0,27,LN,1);KEYS=KEYS.filter(k=>!k[1].startsWith('侧栏')&&!['后退','前进','打开搜索','用户菜单','设置'].includes(k[1]));
+title(2,1,'设置','调整您的专属配置');
+if(O.TP)hline(2,18,4,LN,1,CH-3);else fill(2,4,17,1,T.high);put(2,4,'⌕ 搜索设置项…',T.dim);hk(17,4,'/','搜索设置项');
+[['⚙','常规设置'],['◐','外观设置',1],['♪','播放设置'],['❝','歌词设置'],['⌨','快捷键配置'],['⇋','网络与服务'],['▤','本地与缓存'],['…','其他设置'],['ⓘ','关于软件']].forEach(([g,n,a],i)=>{const y=6+i*2;if(a){surf(0,y,20,1,mix(T.acc,T.panel,.82));put(0,y,'▌',T.acc)}put(2,y,g,a?T.acc:T.sub);put(5,y,n,a?T.acc:T.sub,null,a)});
+put(2,26,'SPlayer TUI v0.1',T.dim);
+put(W-8,1,'✕ ',T.sub);hk(W-6,1,'Esc','关闭设置');
+const rows=[['s','主题与颜色'],['i','主题模式','调整全局主题明暗','‹ 跟随终端 ›',1],['i','主题色来源','默认、自定义、封面、纯色，另加跟终端 16 色','‹ 封面 ›'],['i','全局着色','实底模式下整体按主题色着色','○ 关'],['s','外观风格'],['i','底色','透明会让终端的壁纸透出来','‹ 透明 ›'],['i','图标','选终端里能正常显示的那一套','‹ emoji ›'],['s','布局'],['i','歌曲列表样式','宽松显示两行，紧凑显示一行','‹ 宽松 ›']];
+let y=1;for(const r of rows){if(r[0]=='s'){if(y>1)y++;sect(23,y,r[1]);y+=2;continue}
+const cur=r[4];if(cur){surf(22,y,W-23,2,T.sel);put(22,y,'▌',T.acc2);put(22,y+1,'▌',T.acc2)}
+put(24,y,r[1],T.text,null,cur);if(r[2])put(24,y+1,r[2],T.dim);const cw=sw(r[3]);put(W-3-cw,y,r[3],r[3].startsWith('●')?T.acc:T.sub,O.TP?null:T.high);
+if(cur){hk(W-3-cw,y+1,'←','设置改值',KEY);put(W-4,y+1,'→',KEY)}if(O.SEP)hline(23,W-3,y+1,LNS,1,CH-1.5);y+=3}}
+function usermenu(){const ox=66,oy=1,ow=24,oh=8,bg=O.TP?'#1c1d26':mix(T.panel,'#ffffff',.05);fill(ox,oy,ow,oh,bg);blank(ox,oy,ow,oh);
+cover(ox+2,oy+1,2,1,coverU);put(ox+5,oy+1,'E_Power',T.text,null,1);
+[['467','歌单'],['90','专辑'],['82','艺术家']].forEach(([n,l],i)=>{put(ox+2+i*7,oy+3,n,T.text,null,1);put(ox+2+i*7,oy+4,l,T.dim)});
+put(ox+2,oy+6,'⏻ 退出登录',T.sub)}
+function check(){const m=new Map(),bad=[],dup=[];for(const [k,a] of KEYS){if(!m.has(k))m.set(k,new Set());m.get(k).add(a)}
+for(const [k,s] of m)if(s.size>1)bad.push(k+'：'+[...s].join(' / '));
+const cnt={};for(const [k,a] of KEYS)cnt[k+'|'+a]=(cnt[k+'|'+a]||0)+1;for(const x in cnt)if(cnt[x]>1)dup.push(x.replace('|','：'));
+const el=document.getElementById('chk');el.textContent=bad.length||dup.length?('按键检查：冲突 '+bad.join('；')+(dup.length?'；重复标注 '+dup.join('；'):'')):'按键检查：本页 '+m.size+' 个按键提示，没有冲突，也没有重复标注';el.style.color=bad.length||dup.length?'#e88':'#9a9';if(bad.length)console.error('key conflict',bad)}
+const PAGES=[['home','首页'],['playlist','歌单'],['fp','全屏播放'],['settings','设置']];
+const OPTS=[['TP','透明终端'],['EMO','图标',['emoji','纯符号']],['SEP','行分隔'],['WORD','逐字歌词'],['SPEC','频谱'],['SBC','侧栏歌单封面'],['UM','用户菜单'],['OVL','歌词设置弹窗']];
+const pg=document.getElementById('pages'),op=document.getElementById('opts');
+for(const [k,l] of PAGES){const b=document.createElement('button');b.textContent=l;b.dataset.k=k;b.onclick=()=>{page=k;mark();last=0};pg.appendChild(b)}
+{const b=document.createElement('button');b.textContent='换一首（看封面取色）';b.onclick=()=>{ti=1-ti;start=performance.now();last=0};pg.appendChild(b)}
+for(const [k] of OPTS){const b=document.createElement('button');b.dataset.o=k;b.onclick=()=>{O[k]=!O[k];if(k=='OVL'&&O.OVL)page='fp';if(k=='UM'&&O.UM&&page=='fp')page='home';mark();last=0};op.appendChild(b)}
+function mark(){for(const b of pg.children)if(b.dataset.k)b.classList.toggle('on',b.dataset.k==page);for(const b of op.children){const [k,l,names]=OPTS.find(o=>o[0]==b.dataset.o);b.textContent=l+'：'+(names?names[O[k]?0:1]:(O[k]?'开':'关'))}}
+mark();
+function loop(now){if(now-last>85){last=now;const S=TR[ti],e=(now-start)/1000;S.t=(49+e)%S.dur;S.li=3+Math.floor(e/4)%5;S.lp=(e%4)/4;T=S.T;KEY=mix(T.sub,T.dim,.5);LN=O.TP?mix(T.dim,'#000000',.15):T.line;LNS=O.TP?mix(T.dim,'#000000',.45):mix(T.line,T.base,.35);
+({home,playlist,fp,settings})[page](S,now);if(O.UM&&page!='fp')usermenu();check();draw()}requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
