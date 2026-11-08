@@ -1,0 +1,10 @@
+[package]
+name = "diag"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "摸底实验 T-1：用和 ffmpeg-audio 相同的 reqwest 配置连一个地址，打印完整错误链"
+
+[dependencies]
+reqwest = { version = "0.13.4", features = ["stream", "socks"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

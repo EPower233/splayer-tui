@@ -2,7 +2,7 @@
 # [workspace.dependencies] 和 lints 照抄 SPlayer-Next 根 Cargo.toml @ a8716df，
 # 只把 napi、napi-derive、napi-build 换成本目录下的普通 Rust 替身。
 [workspace]
-members = ["engine", "napi-shim", "napi-derive-shim", "napi-build-shim", "play"]
+members = ["engine", "napi-shim", "napi-derive-shim", "napi-build-shim", "play", "diag"]
 resolver = "3"
 
 [workspace.dependencies]
