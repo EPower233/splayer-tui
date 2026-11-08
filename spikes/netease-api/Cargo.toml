@@ -1,4 +1,4 @@
 # 摸底实验 T-2：独立的 workspace，不进根 workspace。
 [workspace]
 resolver = "2"
-members = ["ncm-api-rs"]
+members = ["ncm-api-rs", "probe"]
