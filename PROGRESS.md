@@ -6,7 +6,7 @@
 
 ## 现在
 
-**第 1 期 · M0 第 0 天：三个摸底实验。** 仓库、CI、`main` 保护都已就绪（https://github.com/EPower233/splayer-tui ，公开）。T-1（音频引擎）结论是"能"，用户已亲耳试听。接下来是 T-2（网易云接口）。
+**第 1 期 · M0 第 0 天：三个摸底实验。** 仓库、CI、`main` 保护都已就绪（https://github.com/EPower233/splayer-tui ，公开）。T-1（音频引擎）和 T-2（网易云接口）结论都是"能"，技术栈和音频引擎的 ADR 已接受。接下来是 T-3（终端界面骨架）。
 
 ## 里程碑
 
@@ -25,8 +25,8 @@
 |---|---|---|
 | 骨架：工具包、设计文档、规则文件、workspace、CI | 已在 `main` | 完成，CI 两个平台全绿 |
 | T-1 摸底：音频引擎去掉 NAPI | `exp/1-audio-engine`（永不合并） | 完成，结论见 `docs/experiments.md`；Linux 部分等 X220 装依赖 |
-| T-5 把 T-1 的结果写进 main | `docs/5-record-t1-audio-engine` | 等审查 |
-| T-2 摸底：ncm-api-rs 扫码登录 → 喜欢列表 → 播放地址 → 逐字歌词 | `exp/2-netease-api` | 未开始；扫码要用户来 |
+| T-2 摸底：ncm-api-rs 扫码登录 → 喜欢列表 → 播放地址 → 逐字歌词 | `exp/2-netease-api`（永不合并） | 完成，结论见 `docs/experiments.md` |
+| T-5 把 T-1、T-2 的结果写进 main | `docs/5-record-t1-audio-engine` | 等审查 |
 | T-3 摸底：ratatui 画样稿骨架，对齐、彩色下划线、封面 | `exp/3-terminal` | 未开始 |
 | T-4 X220 性能基线 | 跟 T-3 一起 | 等 T-3 |
 
@@ -38,6 +38,8 @@
 | 2026-11-08 | 构法 D：Rust 独立实现，模块和类型对齐 SPlayer-Next | `docs/scope.md`、`docs/adr/0002-approach-d.md` |
 | 2026-11-08 | 目标是 SPlayer-Next 的终端版，多来源；第 1 期先做本地文件夹和网易云 | `docs/scope.md` §3–4 |
 | 2026-11-08 | 仓库建在 EPower233 下，公开 | 用户 |
+| 2026-11-08 | 技术栈（含 ncm-api-rs + xeapi、amll-lyric、aws-lc-rs） | `docs/adr/0003-tech-stack.md` |
+| 2026-11-08 | 音频内核直接用 SPlayer-Next 的引擎，靠替身 crate 去掉 Node.js 依赖 | `docs/adr/0004-audio-engine.md` |
 | 2026-11-08 | 终端档位先只做"现代"，"兼容"以后补 | `docs/ui-direction.md` |
 | 2026-11-08 | 默认值全部照 SPlayer-Next | `docs/settings.md` |
 | 2026-11-08 | 逐字歌词默认开、可关；不做流动背景；没有底部提示栏 | `docs/ui-direction.md` |
@@ -47,7 +49,6 @@
 
 | 事项 | 卡住什么 |
 |---|---|
-| 接受 ADR 0003（技术栈）和 ADR 0004（音频引擎） | M1 的 `splayer-audio` |
 | 能不能在 X220 上装 `libpipewire-0.3-dev`、`libpulse-dev` | 音频引擎的 Linux 验证、T-4 |
 | 键位 v2（`docs/keymap.md`）定稿 | M2 |
 | 项目正式名称（现在是占位的 `splayer-tui`） | 发 v0.1 |
@@ -61,5 +62,5 @@
 
 ## 下一步
 
-1. 开 `exp/2-netease-api` 做 T-2（不依赖 T-5 合并），到扫码那一步请用户来。
-2. 然后 T-3、T-4，交 M0 验收包。
+1. 开 `exp/3-terminal` 做 T-3（不依赖 T-5 合并）。
+2. 然后 T-4，交 M0 验收包。
