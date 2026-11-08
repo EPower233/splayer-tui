@@ -1,6 +1,6 @@
 # 0003. 技术栈
 
-- 状态：提议中（等用户接受；标了"待摸底"的项由 M0 的实验决定，结果另写 ADR）
+- 状态：已接受（用户，2026-11-08）
 - 日期：2026-11-08
 - 决定人：E_Power（用户），claude-opus 提出
 
@@ -13,10 +13,10 @@
 - **语言和工具链**：Rust，用 `rust-toolchain.toml` 钉死在 1.95.0（本机已装的稳定版），edition 2024。
 - **异步运行时**：只用 tokio 一个。CNMPlayer 那种基于 compio 的代码只借思路，不原样搬。
 - **终端界面**：ratatui + crossterm；封面用 ratatui-image；宽度计算用 unicode-width。
-- **网络**：reqwest + rustls，全程只用 ring 一套加密后端。
-- **网易云接口**：fork SPlayer-Dev/ncm-api-rs（WTFPL），补上 SPlayer-Next 后来加的 xeapi 和易盾 v3 token（待摸底：T-2）。
-- **音频**：首选 SPlayer-Next 的 `native/audio-engine`，去掉 NAPI 层；备选 rodio + symphonia（待摸底：T-1）。
-- **歌词**：amll-lyric（GPL-3.0），不行就退到 ypm 的 `yrc.rs`（待摸底：T-2）。
+- **网络**：reqwest 0.13 + rustls，全程只用 aws-lc-rs 一套加密后端。音频引擎依赖的 reqwest 0.13 默认用 aws-lc-rs（T-1 发现），"只用 ring"做不到；fork ncm-api-rs 时把它的 reqwest 升到 0.13。
+- **网易云接口**：fork SPlayer-Dev/ncm-api-rs（WTFPL），只留用到的接口，补上 SPlayer-Next 后来加的 xeapi 和易盾 v3 token。T-2 实测取播放地址必须走 xeapi（eapi 11/24，xeapi 24/24）；易盾 v3 token 还没验证。
+- **音频**：SPlayer-Next 的 `native/audio-engine`，T-1 已验证可行，具体做法见 ADR 0004；备选 rodio + symphonia。
+- **歌词**：amll-lyric（GPL-3.0）。T-2 实测解析 1895 行逐字歌词，没有丢行。
 - **封面取色**：material-colors。
 - **系统媒体控制**：souvlaki。
 - **序列化和配置**：serde、TOML。
@@ -32,5 +32,5 @@
 ## 后果
 
 - 单一语言，单个可执行文件。
-- FFmpeg 静态构建可能很慢；这是 T-1 首先要量的。
-- 如果 T-1 证明 SPlayer-Next 的音频引擎在 Windows 上编不过，或者太慢，就写新 ADR 改用 rodio，同时记下哪些功能（交叉淡入、独占输出等）要推迟。
+- FFmpeg 静态构建不慢：T-1 量到干净 debug 构建约 40 s，干净 release 构建（LTO）1 分 21 秒，数字见 `docs/experiments.md`。
+- aws-lc-rs 要编译 C 代码，构建机上要有 C 编译器；Windows 上本机的 `CC`/`CXX` 如果指向 msys2，要先去掉。
