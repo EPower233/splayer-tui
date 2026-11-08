@@ -9,6 +9,7 @@
 //! 只打印状态码、条数和耗时。
 
 mod qr;
+mod xeapi;
 
 use std::future::Future;
 use std::path::PathBuf;
@@ -31,6 +32,7 @@ async fn main() -> Result<()> {
     match args.first().map(String::as_str) {
         Some("login") => login().await,
         Some("run") => run(parse_or(args.get(1), 3)?).await,
+        Some("compare") => compare(parse_or(args.get(1), 6)?).await,
         Some("url") => {
             let index = args.get(1).context("用法：probe url <序号> [音质]")?;
             let level = args.get(2).map_or("exhigh", String::as_str);
@@ -298,6 +300,97 @@ async fn run(samples: usize) -> Result<()> {
     }
     println!("逐字歌词：前 {searched} 首里有 {with_yrc} 首");
     Ok(())
+}
+
+/// 设备 ID 存下来，免得每次运行都像一台新设备。
+fn device_id() -> Result<String> {
+    let path = cookie_path().with_file_name("device_id");
+    if let Ok(id) = std::fs::read_to_string(&path) {
+        return Ok(id);
+    }
+    let id = ncm_api_rs::util::device::generate_device_id();
+    std::fs::write(&path, &id)?;
+    Ok(id)
+}
+
+/// 一种取地址方式的统计。
+#[derive(Default)]
+struct Tally {
+    urls: usize,
+    no_url: usize,
+    errors: usize,
+    total_ms: u128,
+    first_error: Option<String>,
+}
+
+impl Tally {
+    fn record(&mut self, result: Result<Value>, elapsed: Duration) {
+        self.total_ms += elapsed.as_millis();
+        match result {
+            Ok(body) if body["data"][0]["url"].is_string() => self.urls += 1,
+            Ok(body) if body["code"] == 200 => self.no_url += 1,
+            Ok(body) => self.fail(format!("code={}", body["code"])),
+            Err(error) => self.fail(error.to_string()),
+        }
+    }
+
+    fn fail(&mut self, message: String) {
+        self.errors += 1;
+        self.first_error.get_or_insert(message);
+    }
+
+    fn summary(&self) -> String {
+        let total = self.urls + self.no_url + self.errors;
+        format!(
+            "有地址 {}/{total}，无地址 {}，报错 {}，平均 {} ms{}",
+            self.urls,
+            self.no_url,
+            self.errors,
+            self.total_ms / total.max(1) as u128,
+            self.first_error.as_ref().map_or(String::new(), |e| format!("（{e}）")),
+        )
+    }
+}
+
+/// 同样的歌、同样的音质，eapi 和 xeapi 轮流取地址，比成功率。
+async fn compare(rounds: usize) -> Result<()> {
+    const URI: &str = "/api/song/enhance/player/url/v1";
+    const SONGS: usize = 3;
+
+    let client = logged_in_client()?;
+    let ids = liked_ids(&client).await?;
+    let cookie = std::fs::read_to_string(cookie_path())?;
+    let mut xeapi = xeapi::Xeapi::connect(&cookie, &device_id()?).await?;
+    println!("xeapi 公钥已拿到");
+
+    for level in LEVELS {
+        let mut eapi_tally = Tally::default();
+        let mut xeapi_tally = Tally::default();
+        for round in 0..rounds {
+            let id = &ids[round % SONGS.min(ids.len())];
+
+            let started = Instant::now();
+            let query = Query::new().param("id", id).param("level", level);
+            let result = client.song_url_v1(&query).await.map(|r| r.body).map_err(describe);
+            eapi_tally.record(result, started.elapsed());
+            tokio::time::sleep(PAUSE).await;
+
+            let started = Instant::now();
+            let ids_param = format!("[{id}]");
+            let data = [("ids", ids_param.as_str()), ("level", level), ("encodeType", "flac")];
+            let result = xeapi.request(URI, &data).await;
+            xeapi_tally.record(result, started.elapsed());
+            tokio::time::sleep(PAUSE).await;
+        }
+        println!("{level:<9} eapi：{}", eapi_tally.summary());
+        println!("{level:<9} xeapi：{}", xeapi_tally.summary());
+    }
+
+    let ids_param = format!("[{}]", ids[0]);
+    let data = [("ids", ids_param.as_str()), ("level", "exhigh"), ("encodeType", "flac")];
+    let body = xeapi.request(URI, &data).await?;
+    let url = body["data"][0]["url"].as_str().context("xeapi 没拿到地址")?;
+    check_cdn(url).await
 }
 
 /// 只把地址打到标准输出，方便 `play "$(probe url 1)"`；状态信息走标准错误。
