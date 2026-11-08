@@ -1,0 +1,9 @@
+[package]
+name = "napi-derive"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "摸底实验 T-1：#[napi] 的替身，去掉所有 #[napi(...)] 标注，其余原样保留"
+
+[lib]
+proc-macro = true

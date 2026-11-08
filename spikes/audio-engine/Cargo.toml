@@ -1,13 +1,14 @@
 # 摸底实验 T-1 的独立 workspace，不属于根 workspace。
-# [workspace.dependencies] 和 lints 照抄 SPlayer-Next 根 Cargo.toml @ a8716df。
+# [workspace.dependencies] 和 lints 照抄 SPlayer-Next 根 Cargo.toml @ a8716df，
+# 只把 napi、napi-derive、napi-build 换成本目录下的普通 Rust 替身。
 [workspace]
-members = ["engine"]
+members = ["engine", "napi-shim", "napi-derive-shim", "napi-build-shim", "play"]
 resolver = "3"
 
 [workspace.dependencies]
-napi = { version = "3.12.1" }
-napi-derive = "3.6.3"
-napi-build = "2.4.1"
+napi = { path = "napi-shim" }
+napi-derive = { path = "napi-derive-shim" }
+napi-build = { path = "napi-build-shim" }
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "local-time"] }
