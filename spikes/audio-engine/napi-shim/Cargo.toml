@@ -1,0 +1,14 @@
+[package]
+name = "napi"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "摸底实验 T-1：napi 的普通 Rust 替身，只实现 audio-engine 用到的部分"
+
+[features]
+napi9 = []
+serde-json = []
+tokio_rt = []
+
+[dependencies]
+tokio = { version = "1", features = ["rt"] }

@@ -1,0 +1,12 @@
+[package]
+name = "play"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "摸底实验 T-1：用普通 Rust 程序调 audio-engine 放歌"
+
+[dependencies]
+audio-engine = { path = "../engine" }
+napi = { path = "../napi-shim" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+anyhow = "1"
