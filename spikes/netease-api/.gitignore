@@ -1,0 +1,3 @@
+/target/
+# 登录 Cookie 只放这里，绝不进仓库。
+/.home/
