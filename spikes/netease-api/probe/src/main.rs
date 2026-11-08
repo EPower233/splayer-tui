@@ -33,6 +33,7 @@ async fn main() -> Result<()> {
         Some("login") => login().await,
         Some("run") => run(parse_or(args.get(1), 3)?).await,
         Some("compare") => compare(parse_or(args.get(1), 6)?).await,
+        Some("lyrics") => lyric_survey(parse_or(args.get(1), 100)?).await,
         Some("url") => {
             let index = args.get(1).context("用法：probe url <序号> [音质]")?;
             let level = args.get(2).map_or("exhigh", String::as_str);
@@ -393,7 +394,55 @@ async fn compare(rounds: usize) -> Result<()> {
     check_cdn(url).await
 }
 
-/// 只把地址打到标准输出，方便 `play "$(probe url 1)"`；状态信息走标准错误。
+/// 统计前几首的歌词：只打印总数，看逐字歌词有多常见、解析会不会丢行。
+async fn lyric_survey(count: usize) -> Result<()> {
+    let client = logged_in_client()?;
+    let ids = liked_ids(&client).await?;
+
+    let (mut errors, mut with_lrc, mut with_tlyric, mut with_yrc, mut with_ytlrc) = (0, 0, 0, 0, 0);
+    let (mut raw_lines, mut parsed_lines, mut words, mut parse_micros) = (0, 0, 0, 0u128);
+    let mut lossy_songs = 0;
+    let sampled = ids.len().min(count);
+
+    for id in ids.iter().take(sampled) {
+        let query = Query::new().param("id", id);
+        let body = match client.lyric_new(&query).await {
+            Ok(response) => response.body,
+            Err(_) => {
+                errors += 1;
+                tokio::time::sleep(PAUSE).await;
+                continue;
+            }
+        };
+        let has = |field: &str| !lyric_field(&body, field).0.is_empty();
+        with_lrc += usize::from(has("lrc"));
+        with_tlyric += usize::from(has("tlyric"));
+        with_ytlrc += usize::from(has("ytlrc"));
+
+        let (yrc, _) = lyric_field(&body, "yrc");
+        if !yrc.is_empty() {
+            with_yrc += 1;
+            let started = Instant::now();
+            let lines = amll_lyric::yrc::parse_yrc(yrc);
+            parse_micros += started.elapsed().as_micros();
+            let raw = yrc.lines().filter(|line| line.starts_with('[')).count();
+            raw_lines += raw;
+            parsed_lines += lines.len();
+            words += lines.iter().map(|line| line.words.len()).sum::<usize>();
+            lossy_songs += usize::from(lines.len() != raw);
+        }
+        tokio::time::sleep(PAUSE).await;
+    }
+
+    println!("抽样 {sampled} 首，接口报错 {errors}");
+    println!("lrc {with_lrc} 首，翻译 {with_tlyric} 首，逐字 {with_yrc} 首，逐字翻译 {with_ytlrc} 首");
+    println!(
+        "逐字解析：原文 {raw_lines} 行 → {parsed_lines} 行，{words} 字，行数对不上的 {lossy_songs} 首，共 {parse_micros} µs"
+    );
+    Ok(())
+}
+
+/// 只把地址打到标准输出，方便 `play "$(probe url 1)"`。
 async fn print_url(index: usize, level: &str) -> Result<()> {
     let client = logged_in_client()?;
     let status = client.login_status(&Query::new()).await.map_err(describe)?.body;
@@ -404,9 +453,13 @@ async fn print_url(index: usize, level: &str) -> Result<()> {
     let query = Query::new().param("uid", &uid.to_string());
     let likes = client.likelist(&query).await.map_err(describe)?;
     let id = likes.body["ids"][index.saturating_sub(1)].to_string();
-    let query = Query::new().param("id", &id).param("level", level);
-    let body = client.song_url_v1(&query).await.map_err(describe)?;
-    let url = body.body["data"][0]["url"].as_str().context("这首歌拿不到地址")?;
+
+    let cookie = std::fs::read_to_string(cookie_path())?;
+    let mut xeapi = xeapi::Xeapi::connect(&cookie, &device_id()?).await?;
+    let ids_param = format!("[{id}]");
+    let data = [("ids", ids_param.as_str()), ("level", level), ("encodeType", "flac")];
+    let body = xeapi.request("/api/song/enhance/player/url/v1", &data).await?;
+    let url = body["data"][0]["url"].as_str().context("这首歌拿不到地址")?;
     println!("{url}");
     Ok(())
 }
