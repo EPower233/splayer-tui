@@ -200,7 +200,13 @@ async fn probe_urls(client: &ApiClient, index: usize, id: &str) -> Result<()> {
     let mut best_url = None;
     for level in LEVELS {
         let query = Query::new().param("id", id).param("level", level);
-        let body = timed(&format!("  song_url_v1 {level}"), client.song_url_v1(&query)).await?;
+        let body = match timed(&format!("  song_url_v1 {level}"), client.song_url_v1(&query)).await {
+            Ok(body) => body,
+            Err(error) => {
+                println!("    失败：{error}");
+                continue;
+            }
+        };
         let item = &body["data"][0];
         let url = item["url"].as_str();
         println!(
